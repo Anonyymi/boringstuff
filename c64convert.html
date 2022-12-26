@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      #convert {
+        image-rendering: pixelated;
+      }
+    </style>
+  </head>
+  <body>
+    <input id="file" type="file">
+    <canvas hidden id="convert" width="320" height="200"></canvas>
+    <script>
+      const cnv = document.getElementById('convert');
+      const ctx = cnv.getContext('2d');
+      let img = ctx.getImageData(0, 0, cnv.width, cnv.height);
+      const len = img.data.length;
+      for (let i = 0; i < len; i += 4) {
+        img.data[i + 3] = 255;
+      }
+      const pal = new Uint8Array(16 * 3);
+      function setp(idx, r, g, b) {
+        pal[idx * 3 + 0] = r;
+        pal[idx * 3 + 1] = g;
+        pal[idx * 3 + 2] = b;
+      }
+      setp(0, 0, 0, 0);
+      setp(1, 255, 255, 255);
+      setp(2, 161, 104, 60);
+      setp(3, 106, 191, 198);
+      setp(4, 98, 98, 98);
+      setp(5, 159, 78, 68);
+      setp(6, 201, 212, 135);
+      setp(7, 136, 126, 203);
+      setp(8, 137, 137, 137);
+      setp(9, 203, 126, 117);
+      setp(10, 154, 226, 155);
+      setp(11, 80, 69, 155);
+      setp(12, 173, 173, 173);
+      setp(13, 109, 84, 18);
+      setp(14, 92, 171, 94);
+      setp(15, 160, 87, 163);
+      const pall = pal.length;
+      function mapp(r, g, b) {
+        let pald = 1024.0;
+        let imem = 0;
+        for (let i = 0; i < pall; i += 3) {
+          const pr = pal[i + 0];
+          const pg = pal[i + 1];
+          const pb = pal[i + 2];
+          const d = Math.sqrt((r - pr) * (r - pr) + (g - pg) * (g - pg) + (b - pb) * (b - pb));
+          if (d < pald) {
+            pald = d;
+            imem = i;
+          }
+        }
+        return [pal[imem + 0], pal[imem + 1], pal[imem + 2]];
+      }
+      document.getElementById('file').addEventListener('change', e => {
+        e.preventDefault();
+
+        const reader = new FileReader();
+        reader.readAsDataURL(e.target.files[0]);
+        reader.onload = () => {
+          let file = new Image();
+          file.src = reader.result;
+          file.onload = function() {
+            ctx.drawImage(file, 0, 0, cnv.width, cnv.height);
+            img = ctx.getImageData(0, 0, cnv.width, cnv.height);
+            for (let i = 0; i < len; i += 4) {
+              const rgb = mapp(img.data[i + 0], img.data[i + 1], img.data[i + 2]);
+              img.data[i + 0] = rgb[0];
+              img.data[i + 1] = rgb[1];
+              img.data[i + 2] = rgb[2];
+            }
+            ctx.putImageData(img, 0, 0);
+            window.open(cnv.toDataURL('image/png'), '_blank', 'width=320,height=200');
+          }
+        };
+      });
+    </script>
+  </body>
+</html>

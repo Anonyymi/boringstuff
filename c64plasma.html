@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      #plasma {
+        image-rendering: pixelated;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="plasma" width="320" height="200"></canvas>
+    <script>
+      // init canvas
+      const cnv = document.getElementById('plasma');
+      const ctx = cnv.getContext('2d');
+      const img = ctx.getImageData(0, 0, cnv.width, cnv.height);
+      const len = img.data.length;
+      for (let i = 0; i < len; i += 4) {
+        img.data[i + 3] = 255;
+      }
+      // c64 bitmap display (just a simple fake 'bitmap', not a real c64 bitmap mode)
+      const c64_w = 320;
+      const c64_h = 200;
+      const c64_bitmap = new Uint8Array(c64_w * c64_h * 3);
+      const c64_bitmap_len = c64_bitmap.length;
+      // plasma fx color tables
+      const plasma_color_tables = [
+        [ // blue
+          0x000000,
+          0x000000,
+          0x50459b,
+          0x50459b,
+          0x887ecb,
+          0x887ecb,
+          0x6abfc6,
+          0x6abfc6,
+          0xc9d487,
+          0xc9d487,
+          0xffffff,
+          0xffffff,
+          0xc9d487,
+          0xc9d487,
+          0x6abfc6,
+          0x6abfc6,
+          0x887ecb,
+          0x887ecb,
+          0x50459b,
+          0x50459b,
+          0x000000,
+          0x000000
+        ],
+        [ // grey
+          0x000000,
+          0x000000,
+          0x626262,
+          0x626262,
+          0x898989,
+          0x898989,
+          0xadadad,
+          0xadadad,
+          0xffffff,
+          0xffffff,
+          0xadadad,
+          0xadadad,
+          0x898989,
+          0x898989,
+          0x626262,
+          0x626262,
+          0x000000,
+          0x000000
+        ],
+        [ // red
+          0x000000,
+          0x000000,
+          0x6d5412,
+          0x6d5412,
+          0xa1683c,
+          0xa1683c,
+          0x9f4e44,
+          0x9f4e44,
+          0xcb7e75,
+          0xcb7e75,
+          0xc9d487,
+          0xc9d487,
+          0xffffff,
+          0xffffff,
+          0xc9d487,
+          0xc9d487,
+          0xcb7e75,
+          0xcb7e75,
+          0x9f4e44,
+          0x9f4e44,
+          0xa1683c,
+          0xa1683c,
+          0x6d5412,
+          0x6d5412,
+          0x000000,
+          0x000000
+        ],
+        [ // green
+          0x000000,
+          0x000000,
+          0x626262,
+          0x626262,
+          0x5cab5e,
+          0x5cab5e,
+          0x9ae29b,
+          0x9ae29b,
+          0xc9d487,
+          0xc9d487,
+          0xffffff,
+          0xffffff,
+          0xc9d487,
+          0xc9d487,
+          0x9ae29b,
+          0x9ae29b,
+          0x5cab5e,
+          0x5cab5e,
+          0x626262,
+          0x626262,
+          0x000000,
+          0x000000
+        ],
+        [ // yellow
+          0x626262,
+          0x626262,
+          0x898989,
+          0x898989,
+          0xadadad,
+          0xadadad,
+          0xc9d487,
+          0xc9d487,
+          0xffffff,
+          0xffffff,
+          0xc9d487,
+          0xc9d487,
+          0xadadad,
+          0xadadad,
+          0x898989,
+          0x898989,
+          0x626262,
+          0x626262
+        ]
+      ];
+      let pctidx = 0;
+      function plasma_floor(x, n) {
+        return Math.floor(x / n);
+      }
+      function plasma_mul(x) {
+        return x * plasma_color_tables[pctidx].length;
+      }
+      function sin(x) {
+        return Math.sin(x) * 0.5 + 0.5;
+      }
+      function cos(x) {
+        return Math.cos(x) * 0.5 + 0.5;
+      }
+      function dist(a, b, c, d) {
+        return Math.sqrt((a - c) * (a - c) + (b - d) * (b - d));
+      }
+      let t = 0.0;
+      let p_sx = 32;
+      let p_sy = 12;
+      function plasma_render() {
+        for (let i = 0; i < c64_bitmap_len; i += 3) {
+          const x = Math.floor(i * 0.333333 % c64_w);
+          const y = Math.floor(i * 0.333333 / c64_w);
+          const dx = x / c64_w;
+          const dy = y / c64_h;
+
+          let f = 0;
+          f += sin(dx * p_sx + t);
+          f += cos(dy * p_sy + Math.sin(t * 2) * p_sy * 0.5);
+          f += dist(dx, dy, Math.sin(t * Math.PI * 2) * 0.5 + 0.5, Math.cos(t * Math.PI * 3) * 0.5 + 0.5) * 2; // *2 clips it outside col table but idgaf
+
+          const c = plasma_color_tables[pctidx][plasma_floor(plasma_mul(f), 3)];
+
+          c64_bitmap[i + 0] = c >> 16;
+          c64_bitmap[i + 1] = c >> 8;
+          c64_bitmap[i + 2] = c;
+        }
+      }
+      // canvas render
+      function canvas_render() {
+        let ii = 0;
+        let jj = 0;
+        for (let i = 0; i < len/4; i++) {
+          jj = jj % (c64_w * c64_h * 3);
+          img.data[ii + 0] = c64_bitmap[jj + 0];
+          img.data[ii + 1] = c64_bitmap[jj + 1];
+          img.data[ii + 2] = c64_bitmap[jj + 2];
+          ii += 4;
+          jj += 3;
+        }
+        ctx.putImageData(img, 0, 0);
+      }
+      // main plasma+render loop
+      let interval = null;
+      function main_loop() {
+        plasma_render();
+        canvas_render();
+        t += 1/128;
+      }
+      interval = window.setInterval(main_loop, 16.67);
+      // cycle colors loop
+      function cycle_loop() {
+        pctidx = Math.floor(Math.random() * (plasma_color_tables.length));
+      }
+      window.setInterval(cycle_loop, 5000.00);
+    </script>
+  </body>
+</html>
